@@ -1,0 +1,92 @@
+//
+//  Models.swift
+//  LapWork
+//
+//  Core value types: user settings, the permanent lap log, and break events.
+//  These are deliberately plain Codable structs so they survive quit/restart
+//  and serialize cleanly to JSON (state) and CSV (the experiment export).
+//
+
+import Foundation
+
+/// User-tunable knobs. Persisted as part of `PersistedState`.
+struct FocusSettings: Codable, Equatable, Sendable {
+    /// Length of a single focus lap, in minutes.
+    var lapLengthMin: Double = 12
+    /// Fraction of a completed lap banked as Gas, expressed 0–100.
+    var accrualPercent: Double = 20
+    /// How far Gas may go negative, stored as a positive magnitude (floor = -this).
+    var overdraftFloorMin: Double = 5
+    /// Ring a bell when a lap ends.
+    var soundEnabled: Bool = true
+    /// Post a system notification banner when a lap ends.
+    var notificationsEnabled: Bool = true
+
+    /// Gas earned by completing one full lap at the current settings, in minutes.
+    var gasPerLapMin: Double { lapLengthMin * (accrualPercent / 100.0) }
+
+    /// The (negative) Gas floor in minutes.
+    var overdraftFloor: Double { -abs(overdraftFloorMin) }
+}
+
+/// One PERMANENT record of a completed lap. This is the experiment data —
+/// it is never touched by the daily Gas flush. Partial/forfeited laps are
+/// never recorded.
+struct LapRecord: Codable, Identifiable, Sendable {
+    var id: UUID = UUID()
+    /// Local calendar day, "yyyy-MM-dd". Lap numbering resets each day.
+    var date: String
+    /// Lap number within `date`, starting at 1.
+    var lapNumber: Int
+    var startTime: Date
+    var endTime: Date
+    /// Lap length in effect when this lap ran (minutes).
+    var lapLengthMin: Double
+    /// Accrual percent in effect when this lap ran (0–100).
+    var accrualPercent: Double
+    /// Gas added to the bank by completing this lap (minutes).
+    var gasEarnedMin: Double
+}
+
+/// One PERMANENT record of a break: a stretch where Gas was drained live.
+struct BreakEvent: Codable, Identifiable, Sendable {
+    var id: UUID = UUID()
+    var date: String
+    var startTime: Date
+    var endTime: Date
+    /// How much Gas was drained over this break (minutes).
+    var drainedMin: Double
+}
+
+/// Everything ephemeral that must survive quit/restart but is NOT experiment
+/// data: the live Gas counter, lap progress, diary state, and settings.
+/// Stored as a single JSON blob in UserDefaults.
+struct PersistedState: Codable, Sendable {
+    var settings = FocusSettings()
+
+    /// Live Gas balance in minutes. Flushed to 0 at the daily reset.
+    var bankedGas: Double = 0
+
+    /// The calendar day this state belongs to, "yyyy-MM-dd".
+    var dayKey: String = ""
+
+    /// True while the diary is open (session mode).
+    var diaryOpen: Bool = false
+
+    /// The lap number that "Start Lap" will begin next (resets to 1 each day).
+    var nextLapNumber: Int = 1
+
+    /// Non-nil while a lap is actively running.
+    var runningLapNumber: Int? = nil
+    /// Wall-clock start of the running lap (for drift-free countdown).
+    var lapStartDate: Date? = nil
+
+    /// The just-completed lap number, held for the "L7 done" display until the
+    /// next lap is started. Cleared on start / diary complete.
+    var justCompletedLapNumber: Int? = nil
+
+    // Live break drain (also resumed across restart).
+    var breakActive: Bool = false
+    var breakStartDate: Date? = nil
+    var gasAtBreakStart: Double = 0
+}

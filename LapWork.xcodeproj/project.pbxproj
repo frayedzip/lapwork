@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		CB1999642FF19AB500BF2620 /* FocusBank.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusBank.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB1999642FF19AB500BF2620 /* LapWork.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LapWork.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		CB1999662FF19AB500BF2620 /* FocusBank */ = {
+		CB1999662FF19AB500BF2620 /* LapWork */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FocusBank;
+			path = LapWork;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		CB19995B2FF19AB500BF2620 = {
 			isa = PBXGroup;
 			children = (
-				CB1999662FF19AB500BF2620 /* FocusBank */,
+				CB1999662FF19AB500BF2620 /* LapWork */,
 				CB1999652FF19AB500BF2620 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		CB1999652FF19AB500BF2620 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				CB1999642FF19AB500BF2620 /* FocusBank.app */,
+				CB1999642FF19AB500BF2620 /* LapWork.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		CB1999632FF19AB500BF2620 /* FocusBank */ = {
+		CB1999632FF19AB500BF2620 /* LapWork */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = CB19996F2FF19AB700BF2620 /* Build configuration list for PBXNativeTarget "FocusBank" */;
+			buildConfigurationList = CB19996F2FF19AB700BF2620 /* Build configuration list for PBXNativeTarget "LapWork" */;
 			buildPhases = (
 				CB1999602FF19AB500BF2620 /* Sources */,
 				CB1999612FF19AB500BF2620 /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				CB1999662FF19AB500BF2620 /* FocusBank */,
+				CB1999662FF19AB500BF2620 /* LapWork */,
 			);
-			name = FocusBank;
+			name = LapWork;
 			packageProductDependencies = (
 			);
-			productName = FocusBank;
-			productReference = CB1999642FF19AB500BF2620 /* FocusBank.app */;
+			productName = LapWork;
+			productReference = CB1999642FF19AB500BF2620 /* LapWork.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = CB19995F2FF19AB500BF2620 /* Build configuration list for PBXProject "FocusBank" */;
+			buildConfigurationList = CB19995F2FF19AB500BF2620 /* Build configuration list for PBXProject "LapWork" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				CB1999632FF19AB500BF2620 /* FocusBank */,
+				CB1999632FF19AB500BF2620 /* LapWork */,
 			);
 		};
 /* End PBXProject section */
@@ -259,13 +259,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kunal.FocusBank;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kunal.LapWork;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -291,13 +292,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.kunal.FocusBank;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kunal.LapWork;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -312,7 +314,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		CB19995F2FF19AB500BF2620 /* Build configuration list for PBXProject "FocusBank" */ = {
+		CB19995F2FF19AB500BF2620 /* Build configuration list for PBXProject "LapWork" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				CB19996D2FF19AB700BF2620 /* Debug */,
@@ -321,7 +323,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		CB19996F2FF19AB700BF2620 /* Build configuration list for PBXNativeTarget "FocusBank" */ = {
+		CB19996F2FF19AB700BF2620 /* Build configuration list for PBXNativeTarget "LapWork" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				CB1999702FF19AB700BF2620 /* Debug */,
