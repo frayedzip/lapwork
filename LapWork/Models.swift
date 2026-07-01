@@ -58,6 +58,29 @@ struct BreakEvent: Codable, Identifiable, Sendable {
     var drainedMin: Double
 }
 
+/// A wrap-up of a single diary session, computed when the diary is completed.
+/// Breaks the "diary open → diary complete" span into where the time went:
+/// focus laps, rest (breaks), and idle (nothing logged — e.g. logged off).
+struct DaySummary: Codable, Sendable {
+    var day: String
+    /// When the diary was opened and completed for this session.
+    var start: Date
+    var end: Date
+    /// Number of completed laps logged on `day`.
+    var lapCount: Int
+    /// Total wall-clock time inside completed laps (seconds).
+    var lapTimeSec: TimeInterval
+    /// Total wall-clock time inside breaks (seconds).
+    var breakTimeSec: TimeInterval
+    /// Time in the span accounted for by neither laps nor breaks (seconds).
+    var idleTimeSec: TimeInterval
+    /// Total Gas earned across the session's laps (minutes).
+    var gasEarnedMin: Double
+
+    /// Full diary span, start → end (seconds).
+    var spanSec: TimeInterval { max(0, end.timeIntervalSince(start)) }
+}
+
 /// Everything ephemeral that must survive quit/restart but is NOT experiment
 /// data: the live Gas counter, lap progress, diary state, and settings.
 /// Stored as a single JSON blob in UserDefaults.
@@ -72,6 +95,14 @@ struct PersistedState: Codable, Sendable {
 
     /// True while the diary is open (session mode).
     var diaryOpen: Bool = false
+
+    /// Wall-clock moment the diary was opened this session (for the span in the
+    /// completion summary). Nil when the diary is closed.
+    var diaryOpenedAt: Date? = nil
+
+    /// Summary of the most recently completed diary session, shown until the
+    /// next diary is opened. Nil before any completion this cycle.
+    var lastSummary: DaySummary? = nil
 
     /// The lap number that "Start Lap" will begin next (resets to 1 each day).
     var nextLapNumber: Int = 1

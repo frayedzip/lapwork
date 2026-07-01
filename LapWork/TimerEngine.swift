@@ -112,6 +112,26 @@ final class TimerEngine: ObservableObject {
         return minutes < 0 ? "-\(body)" : body
     }
 
+    /// Format a duration given in SECONDS as compact hours/minutes for the day
+    /// summary, e.g. 5820 → "1h 37m", 1080 → "18m", 0 → "0m".
+    static func hoursMinutes(_ seconds: TimeInterval) -> String {
+        let totalMin = Int((seconds / 60).rounded())
+        let h = totalMin / 60, m = totalMin % 60
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    /// A wall-clock time of day, "HH:mm" local (e.g. "09:12"), for the span line.
+    static func timeOfDay(_ date: Date) -> String {
+        timeOfDayFormatter.string(from: date)
+    }
+
+    private static let timeOfDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     // MARK: - Diary ritual
 
     func openDiary() {
@@ -122,6 +142,9 @@ final class TimerEngine: ObservableObject {
             state.dayKey = today
         }
         state.diaryOpen = true
+        // Start the span clock for this session, and clear any prior summary.
+        state.diaryOpenedAt = Date()
+        state.lastSummary = nil
         persist()
     }
 
@@ -130,12 +153,46 @@ final class TimerEngine: ObservableObject {
     func completeDiary() {
         if state.breakActive { stopBreak() }
         if isLapRunning { cancelLap() } // an unfinished lap is forfeited
+        let end = Date()
+        state.lastSummary = makeSummary(day: state.dayKey, end: end)
         state.diaryOpen = false
+        state.diaryOpenedAt = nil
         state.bankedGas = 0
         state.nextLapNumber = 1
         state.justCompletedLapNumber = nil
         // Day key stays as-is; the next openDiary on a new calendar day rolls over.
         persist()
+    }
+
+    /// Build the wrap-up for the day being completed, from the permanent log
+    /// (untouched by the flush) plus the diary open/close timestamps. Rest and
+    /// idle are measured in wall-clock time; idle is whatever the span isn't.
+    private func makeSummary(day: String, end: Date) -> DaySummary {
+        let laps = store.allLaps().filter { $0.date == day }
+        let breaks = store.allBreaks().filter { $0.date == day }
+
+        let lapTime = laps.reduce(0.0) { $0 + $1.endTime.timeIntervalSince($1.startTime) }
+        let breakTime = breaks.reduce(0.0) { $0 + $1.endTime.timeIntervalSince($1.startTime) }
+        let gas = laps.reduce(0.0) { $0 + $1.gasEarnedMin }
+
+        // Span starts at diary open; fall back to the earliest logged event if
+        // an older state carried no open timestamp.
+        let earliest = (laps.map(\.startTime) + breaks.map(\.startTime)).min()
+        let start = state.diaryOpenedAt ?? earliest ?? end
+
+        let span = max(0, end.timeIntervalSince(start))
+        let idle = max(0, span - lapTime - breakTime)
+
+        return DaySummary(
+            day: day,
+            start: start,
+            end: end,
+            lapCount: laps.count,
+            lapTimeSec: lapTime,
+            breakTimeSec: breakTime,
+            idleTimeSec: idle,
+            gasEarnedMin: gas
+        )
     }
 
     private func rolloverToNewDay(_ today: String) {
@@ -145,6 +202,7 @@ final class TimerEngine: ObservableObject {
         state.runningLapNumber = nil
         state.lapStartDate = nil
         state.justCompletedLapNumber = nil
+        state.diaryOpenedAt = nil
         state.breakActive = false
         state.breakStartDate = nil
     }

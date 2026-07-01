@@ -26,6 +26,10 @@ struct ContentView: View {
                 actions
             } else {
                 Divider()
+                if let summary = engine.state.lastSummary {
+                    summarySection(summary)
+                    Divider()
+                }
                 closedSection
             }
 
@@ -49,6 +53,54 @@ struct ContentView: View {
             Text(engine.diaryOpen ? "Diary open" : "Diary closed")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Day summary (shown after Diary Complete)
+
+    private func summarySection(_ s: DaySummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Day summary", systemImage: "checkmark.seal.fill")
+                    .font(.callout).bold()
+                Spacer()
+                Text(s.day)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            summaryRow(
+                "Active",
+                value: TimerEngine.hoursMinutes(s.spanSec),
+                detail: "\(TimerEngine.timeOfDay(s.start)) → \(TimerEngine.timeOfDay(s.end))"
+            )
+            summaryRow(
+                "Laps",
+                value: "\(s.lapCount)",
+                detail: "earned \(TimerEngine.clock(minutes: s.gasEarnedMin))"
+            )
+
+            Divider()
+
+            summaryRow("Lap time", value: TimerEngine.hoursMinutes(s.lapTimeSec))
+            summaryRow("Rest time", value: TimerEngine.hoursMinutes(s.breakTimeSec))
+            summaryRow("Idle (nothing logged)", value: TimerEngine.hoursMinutes(s.idleTimeSec))
+        }
+    }
+
+    private func summaryRow(_ label: String, value: String, detail: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.callout)
+            if let detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(value)
+                .font(.system(.callout, design: .monospaced))
+                .monospacedDigit()
         }
     }
 
