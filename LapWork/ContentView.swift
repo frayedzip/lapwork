@@ -126,41 +126,102 @@ struct ContentView: View {
 
     private var lapSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if engine.isLapRunning, let lap = engine.state.runningLapNumber {
-                HStack {
-                    Text("Lap \(lap)")
-                        .font(.title3).bold()
-                    Spacer()
-                    Text(TimerEngine.mmss(engine.lapRemaining))
-                        .font(.system(.title3, design: .monospaced))
-                        .monospacedDigit()
-                }
-                Button(role: .destructive) {
-                    engine.cancelLap()
-                } label: {
-                    Label("Cancel lap (forfeit)", systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
+            if engine.isResting {
+                restingRows
+            } else if engine.isLapRunning, let lap = engine.state.runningLapNumber {
+                runningLapRows(lap: lap)
             } else {
-                if let done = engine.state.justCompletedLapNumber {
-                    Text("Lap \(done) done — banked \(TimerEngine.clock(minutes: engine.settings.gasPerLapMin))")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                Button {
-                    engine.startLap()
-                } label: {
-                    Label("Start Lap \(engine.state.nextLapNumber)", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
-                .buttonStyle(.borderedProminent)
-                .disabled(engine.isBreakActive)
+                readyRows
             }
-            Text("Lap length \(Int(engine.settings.lapLengthMin)) min · earns \(TimerEngine.clock(minutes: engine.settings.gasPerLapMin))")
+            Text(lapCaption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    // Mandatory tempo rest between laps — counts down, then auto-starts.
+    private var restingRows: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Rest", systemImage: "pause.circle")
+                    .font(.title3).bold()
+                Spacer()
+                Text(TimerEngine.mmss(engine.restRemaining))
+                    .font(.system(.title3, design: .monospaced))
+                    .monospacedDigit()
+            }
+            Text("Lap \(engine.state.nextLapNumber) starts automatically.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button(role: .destructive) {
+                engine.stopTempo()
+            } label: {
+                Label("Stop tempo", systemImage: "stop.circle")
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func runningLapRows(lap: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Lap \(lap)")
+                    .font(.title3).bold()
+                Spacer()
+                Text(TimerEngine.mmss(engine.lapRemaining))
+                    .font(.system(.title3, design: .monospaced))
+                    .monospacedDigit()
+            }
+            if engine.settings.tempoModeEnabled {
+                Button {
+                    engine.toggleTempoStop()
+                } label: {
+                    Label(engine.tempoStopPending ? "Keep tempo going" : "Stop tempo after this lap",
+                          systemImage: engine.tempoStopPending ? "arrow.clockwise" : "stop.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                if engine.tempoStopPending {
+                    Text("Cadence stops when this lap ends.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Button(role: .destructive) {
+                engine.cancelLap()
+            } label: {
+                Label("Cancel lap (forfeit)", systemImage: "xmark.circle")
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var readyRows: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let done = engine.state.justCompletedLapNumber {
+                Text("Lap \(done) done — banked \(TimerEngine.clock(minutes: engine.settings.gasPerLapMin))")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Button {
+                engine.startLap()
+            } label: {
+                Label(engine.settings.tempoModeEnabled
+                      ? "Start Tempo (Lap \(engine.state.nextLapNumber))"
+                      : "Start Lap \(engine.state.nextLapNumber)",
+                      systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .disabled(engine.isBreakActive)
+        }
+    }
+
+    private var lapCaption: String {
+        let base = "Lap length \(Int(engine.settings.lapLengthMin)) min · earns \(TimerEngine.clock(minutes: engine.settings.gasPerLapMin))"
+        guard engine.settings.tempoModeEnabled else { return base }
+        return base + " · tempo rest \(Int(engine.settings.restLengthSec))s"
     }
 
     // MARK: - Gas

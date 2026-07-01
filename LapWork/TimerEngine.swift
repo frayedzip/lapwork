@@ -45,11 +45,25 @@ final class TimerEngine: ObservableObject {
         }
 
         // A lap was running when we quit. If its end time has already passed,
-        // complete it now (and ring); otherwise it simply keeps running.
+        // complete it now (and ring); otherwise it simply keeps running. We do
+        // NOT auto-advance the tempo cadence here: replaying laps across time
+        // the app was closed would fabricate work that never happened, so the
+        // cadence simply pauses in the ready state.
         if let lapNo = state.runningLapNumber, let start = state.lapStartDate {
             let end = start.addingTimeInterval(state.settings.lapLengthMin * 60)
             if Date() >= end {
-                completeRunningLap(at: end, lapNumber: lapNo, start: start)
+                completeRunningLap(at: end, lapNumber: lapNo, start: start, autoAdvance: false)
+            }
+        }
+
+        // A mandatory rest was counting down when we quit. If it already
+        // finished, end it (logging the rest) but don't auto-start the next lap
+        // — same reason as above. If it's still within its window, it keeps
+        // counting and the ticker will advance it normally.
+        if state.restActive, let restStart = state.restStartDate {
+            let restEnd = restStart.addingTimeInterval(state.settings.restLengthSec)
+            if Date() >= restEnd {
+                endRest(at: restEnd, autoAdvance: false)
             }
         }
         persist()
@@ -62,10 +76,24 @@ final class TimerEngine: ObservableObject {
     var isLapRunning: Bool { state.runningLapNumber != nil }
     var isBreakActive: Bool { state.breakActive }
 
+    /// True while a mandatory tempo rest is counting down between laps.
+    var isResting: Bool { state.restActive }
+    /// True when the tempo cadence is live (a running lap or a mandatory rest).
+    var isTempoRunning: Bool { state.restActive || (isLapRunning && settings.tempoModeEnabled) }
+    /// True when the current tempo lap is set to stop the cadence when it ends.
+    var tempoStopPending: Bool { state.tempoStopRequested }
+
     /// Seconds remaining in the running lap (0 if none).
     var lapRemaining: TimeInterval {
         guard let start = state.lapStartDate else { return 0 }
         let end = start.addingTimeInterval(state.settings.lapLengthMin * 60)
+        return max(0, end.timeIntervalSince(now))
+    }
+
+    /// Seconds remaining in the mandatory rest (0 if not resting).
+    var restRemaining: TimeInterval {
+        guard let start = state.restStartDate else { return 0 }
+        let end = start.addingTimeInterval(state.settings.restLengthSec)
         return max(0, end.timeIntervalSince(now))
     }
 
@@ -80,7 +108,7 @@ final class TimerEngine: ObservableObject {
     var atOverdraftFloor: Bool { currentGas <= settings.overdraftFloor + 0.0001 }
 
     var canTakeBreak: Bool {
-        diaryOpen && !isLapRunning && !atOverdraftFloor
+        diaryOpen && !isLapRunning && !isResting && !atOverdraftFloor
     }
 
     /// The string shown in the menu bar.
@@ -88,6 +116,9 @@ final class TimerEngine: ObservableObject {
         guard state.diaryOpen else { return "⊙" }
         if state.breakActive {
             return "☕ \(Self.clock(minutes: currentGas))"
+        }
+        if state.restActive {
+            return "rest · \(Self.mmss(restRemaining))"
         }
         if let lapNo = state.runningLapNumber {
             return "L\(lapNo) · \(Self.mmss(lapRemaining))"
@@ -152,6 +183,7 @@ final class TimerEngine: ObservableObject {
     /// reset lap numbering. Permanent lap logs are untouched.
     func completeDiary() {
         if state.breakActive { stopBreak() }
+        if state.restActive { endRest(at: Date(), autoAdvance: false) } // log the rest so far
         if isLapRunning { cancelLap() } // an unfinished lap is forfeited
         let end = Date()
         state.lastSummary = makeSummary(day: state.dayKey, end: end)
@@ -160,6 +192,7 @@ final class TimerEngine: ObservableObject {
         state.bankedGas = 0
         state.nextLapNumber = 1
         state.justCompletedLapNumber = nil
+        state.tempoStopRequested = false
         // Day key stays as-is; the next openDiary on a new calendar day rolls over.
         persist()
     }
@@ -205,29 +238,61 @@ final class TimerEngine: ObservableObject {
         state.diaryOpenedAt = nil
         state.breakActive = false
         state.breakStartDate = nil
+        state.restActive = false
+        state.restStartDate = nil
+        state.tempoStopRequested = false
     }
 
     // MARK: - Laps
 
     func startLap() {
-        guard state.diaryOpen, !isLapRunning else { return }
+        guard state.diaryOpen, !isLapRunning, !isResting else { return }
         if state.breakActive { stopBreak() } // can't run a lap and a break at once
-        state.runningLapNumber = state.nextLapNumber
-        state.lapStartDate = Date()
-        state.justCompletedLapNumber = nil
+        beginLap(at: Date())
         persist()
     }
 
-    /// Forfeit the running lap. Earns nothing, logs nothing.
+    /// Begin the next lap at a specific wall-clock instant. Shared by the manual
+    /// Start button (at "now") and the tempo cadence (at the instant the rest
+    /// ended, to keep the cadence drift-free).
+    private func beginLap(at start: Date) {
+        state.runningLapNumber = state.nextLapNumber
+        state.lapStartDate = start
+        state.justCompletedLapNumber = nil
+    }
+
+    /// Forfeit the running lap. Earns nothing, logs nothing. Also stops the
+    /// tempo cadence (a forfeited lap ends the run).
     func cancelLap() {
         guard isLapRunning else { return }
         state.runningLapNumber = nil
         state.lapStartDate = nil
+        state.tempoStopRequested = false
+        persist()
+    }
+
+    /// Request the tempo cadence stop cleanly once the current lap finishes.
+    /// The lap still completes and counts; no rest follows. Tapping again while
+    /// pending resumes the cadence. Only meaningful during a tempo lap.
+    func toggleTempoStop() {
+        guard isLapRunning, settings.tempoModeEnabled else { return }
+        state.tempoStopRequested.toggle()
+        persist()
+    }
+
+    /// Stop the cadence during a mandatory rest: end the rest now (logging the
+    /// partial rest as real rest time) and return to the ready state.
+    func stopTempo() {
+        guard state.restActive else { return }
+        endRest(at: Date(), autoAdvance: false)
         persist()
     }
 
     /// Called by the ticker when a running lap's countdown reaches zero.
-    private func completeRunningLap(at end: Date, lapNumber: Int, start: Date) {
+    /// `autoAdvance` drives the tempo cadence (start a rest afterward); it is
+    /// false when replaying a completion at launch so we never fabricate a
+    /// chain of laps across time the app was closed.
+    private func completeRunningLap(at end: Date, lapNumber: Int, start: Date, autoAdvance: Bool) {
         let s = state.settings
         let earned = s.gasPerLapMin
 
@@ -249,6 +314,41 @@ final class TimerEngine: ObservableObject {
         state.nextLapNumber = lapNumber + 1
 
         ringLapEnd(lapNumber: lapNumber)
+
+        // Tempo cadence: begin the mandatory rest, unless a stop was requested.
+        if autoAdvance && s.tempoModeEnabled && !state.tempoStopRequested {
+            startRest(from: end)
+        } else {
+            state.tempoStopRequested = false
+        }
+    }
+
+    // MARK: - Tempo rest
+
+    /// Begin the mandatory rest between tempo laps, timed from `date`.
+    private func startRest(from date: Date) {
+        state.restActive = true
+        state.restStartDate = date
+    }
+
+    /// End the mandatory rest. Logs it as real rest time (a break event with no
+    /// Gas drained), then — when `autoAdvance` — auto-starts the next lap at the
+    /// rest's end instant to keep the cadence tight.
+    private func endRest(at end: Date, autoAdvance: Bool) {
+        if let restStart = state.restStartDate, end > restStart {
+            store.appendBreak(BreakEvent(
+                date: DiaryStore.dayKey(for: restStart),
+                startTime: restStart,
+                endTime: end,
+                drainedMin: 0
+            ))
+        }
+        state.restActive = false
+        state.restStartDate = nil
+
+        if autoAdvance {
+            beginLap(at: end)
+        }
     }
 
     // MARK: - Breaks
@@ -320,11 +420,21 @@ final class TimerEngine: ObservableObject {
     private func tick() {
         now = Date()
 
-        // Auto-complete a finished lap.
+        // Auto-complete a finished lap. In tempo mode this starts the rest.
         if let lapNo = state.runningLapNumber, let start = state.lapStartDate {
             let end = start.addingTimeInterval(state.settings.lapLengthMin * 60)
             if now >= end {
-                completeRunningLap(at: end, lapNumber: lapNo, start: start)
+                completeRunningLap(at: end, lapNumber: lapNo, start: start, autoAdvance: true)
+                persist()
+            }
+        }
+
+        // Auto-advance the tempo cadence: when the mandatory rest ends, log it
+        // and start the next lap at the rest's end instant.
+        if state.restActive, let restStart = state.restStartDate {
+            let restEnd = restStart.addingTimeInterval(state.settings.restLengthSec)
+            if now >= restEnd {
+                endRest(at: restEnd, autoAdvance: true)
                 persist()
             }
         }

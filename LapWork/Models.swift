@@ -22,6 +22,14 @@ struct FocusSettings: Codable, Equatable, Sendable {
     /// Post a system notification banner when a lap ends.
     var notificationsEnabled: Bool = true
 
+    /// Tempo mode: when on, one "Start Lap" kicks off a continuous cadence —
+    /// laps run back-to-back with a fixed mandatory rest between each, until
+    /// the user stops it. When off, laps advance manually (the default).
+    var tempoModeEnabled: Bool = false
+    /// Length of the mandatory rest between laps in tempo mode, in seconds.
+    /// This rest is "free" — it never touches the Gas bank.
+    var restLengthSec: Double = 30
+
     /// Gas earned by completing one full lap at the current settings, in minutes.
     var gasPerLapMin: Double { lapLengthMin * (accrualPercent / 100.0) }
 
@@ -120,4 +128,13 @@ struct PersistedState: Codable, Sendable {
     var breakActive: Bool = false
     var breakStartDate: Date? = nil
     var gasAtBreakStart: Double = 0
+
+    // Tempo mode: the mandatory rest between laps. Wall-clock based so it
+    // resumes across restart. `restActive` is distinct from `breakActive` —
+    // a mandatory rest drains no Gas.
+    var restActive: Bool = false
+    var restStartDate: Date? = nil
+    /// Set while a tempo lap is running to request the cadence stop cleanly
+    /// after this lap completes (the lap still counts; no rest follows).
+    var tempoStopRequested: Bool = false
 }

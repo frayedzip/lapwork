@@ -34,6 +34,19 @@ struct SettingsView: View {
                 }
             }
 
+            Section {
+                Toggle("Tempo mode (auto-advancing laps)", isOn: $draft.tempoModeEnabled)
+                Stepper(value: $draft.restLengthSec, in: 5...600, step: 5) {
+                    LabeledContent("Mandatory rest",
+                                   value: "\(Int(draft.restLengthSec)) sec")
+                }
+                .disabled(!draft.tempoModeEnabled)
+            } header: {
+                Text("Tempo")
+            } footer: {
+                Text("Laps run back-to-back with a fixed rest between each, until you stop. The rest is free — it never touches Gas.")
+            }
+
             Section("Alerts") {
                 Toggle("Ring a bell when a lap ends", isOn: $draft.soundEnabled)
                 Toggle("Show a notification banner", isOn: $draft.notificationsEnabled)
